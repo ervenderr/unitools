@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import { useDropzone } from 'react-dropzone';
+import { saveAs } from 'file-saver';
 
 export default function BackgroundRemover() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -17,41 +18,83 @@ export default function BackgroundRemover() {
     }
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+  const { getRootProps, getInputProps } = useDropzone({
     onDrop,
-    accept: {'image/*': []},
-    multiple: false
+    accept: {'image/*': ['.png', '.jpg', '.jpeg', '.gif']},
+    multiple: false,
+    onDragEnter: () => {},
+    onDragOver: () => {},
+    onDragLeave: () => {}
   });
 
   const removeBackground = async () => {
     if (!selectedImage) return;
 
     try {
-      const response = await fetch('/api/remove-background', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image: selectedImage }),
+      return new Promise((resolve, reject) => {
+        const img = document.createElement('img');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          // Simple background removal based on color difference
+          const threshold = 20; // Adjust this value to fine-tune the removal
+          const targetColor = [data[0], data[1], data[2]]; // Assume top-left pixel is background
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            if (
+              Math.abs(r - targetColor[0]) < threshold &&
+              Math.abs(g - targetColor[1]) < threshold &&
+              Math.abs(b - targetColor[2]) < threshold
+            ) {
+              data[i + 3] = 0; // Set alpha to 0 (transparent)
+            }
+          }
+
+          ctx.putImageData(imageData, 0, 0);
+          const processedDataUrl = canvas.toDataURL('image/png');
+          setProcessedImage(processedDataUrl);
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = selectedImage;
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove background');
-      }
-
-      const result = await response.json();
-      setProcessedImage(result.processedImage);
     } catch (error) {
       console.error('Error removing background:', error);
       alert('Failed to remove background. Please try again.');
     }
   };
 
+  const handleDownload = () => {
+    if (processedImage) {
+      saveAs(processedImage, 'processed_image.png');
+    }
+  };
+
+  const handleTryAnother = () => {
+    setSelectedImage(null);
+    setProcessedImage(null);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Background Remover</h1>
       <p className="mb-6">Upload an image or drag and drop to remove its background.</p>
-
       <div className="flex items-center justify-center w-full mb-6">
         <div {...getRootProps()} className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
           <input {...getInputProps()} id="dropzone-file" className="hidden" />
@@ -66,14 +109,12 @@ export default function BackgroundRemover() {
           </div>
         </div>
       </div>
-
       {selectedImage && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-2">Original Image:</h2>
           <Image src={selectedImage} alt="Original" width={300} height={300} className="mx-auto" />
         </div>
       )}
-
       <button
         onClick={removeBackground}
         disabled={!selectedImage}
@@ -81,11 +122,24 @@ export default function BackgroundRemover() {
       >
         Remove Background
       </button>
-
       {processedImage && (
         <div>
           <h2 className="text-xl font-semibold mb-2">Processed Image:</h2>
-          <Image src={processedImage} alt="Processed" width={300} height={300} className="mx-auto" />
+          <Image src={processedImage} alt="Processed" width={300} height={300} className="mx-auto mb-4" />
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={handleDownload}
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            >
+              Download
+            </button>
+            <button
+              onClick={handleTryAnother}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Try Another
+            </button>
+          </div>
         </div>
       )}
     </div>
