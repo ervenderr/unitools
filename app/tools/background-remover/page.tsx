@@ -31,52 +31,26 @@ export default function BackgroundRemover() {
     if (!selectedImage) return;
 
     try {
-      return new Promise((resolve, reject) => {
-        const img = document.createElement('img');
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-
-          if (!ctx) {
-            reject(new Error('Failed to get canvas context'));
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-
-          // Simple background removal based on color difference
-          const threshold = 20; // Adjust this value to fine-tune the removal
-          const targetColor = [data[0], data[1], data[2]]; // Assume top-left pixel is background
-
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-
-            if (
-              Math.abs(r - targetColor[0]) < threshold &&
-              Math.abs(g - targetColor[1]) < threshold &&
-              Math.abs(b - targetColor[2]) < threshold
-            ) {
-              data[i + 3] = 0; // Set alpha to 0 (transparent)
-            }
-          }
-
-          ctx.putImageData(imageData, 0, 0);
-          const processedDataUrl = canvas.toDataURL('image/png');
-          setProcessedImage(processedDataUrl);
-          resolve();
-        };
-        img.onerror = reject;
-        img.src = selectedImage;
+      const response = await fetch('/api/remove-background', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: selectedImage.split(',')[1], // Remove the "data:image/png;base64," part
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to remove background: ${errorData.message}`);
+      }
+
+      const data = await response.json();
+      setProcessedImage(data.image);
     } catch (error) {
       console.error('Error removing background:', error);
-      alert('Failed to remove background. Please try again.');
+      alert(`Failed to remove background. ${error.message}`);
     }
   };
 
