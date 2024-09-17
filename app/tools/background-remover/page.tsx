@@ -42,15 +42,14 @@ export default function BackgroundRemover() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to remove background: ${errorData.message}`);
+        throw new Error(`Failed to remove background`);
       }
 
       const data = await response.json();
       setProcessedImage(data.image);
     } catch (error) {
       console.error('Error removing background:', error);
-      alert(`Failed to remove background. ${error.message}`);
+      alert(`Failed to remove background.`);
     }
   };
 
