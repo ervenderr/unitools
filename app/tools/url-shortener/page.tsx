@@ -24,11 +24,11 @@ export default function URLShortenerPage() {
 
     setIsLoading(true)
     try {
-      // Replace this with your actual API call
-      const response = await fetch('/api/shorten', {
+      // Update the API endpoint to match the correct route
+      const response = await fetch('/api/url-shortener', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ longUrl }),
+        body: JSON.stringify({ url: longUrl }),
       })
 
       if (!response.ok) throw new Error('Failed to shorten URL')

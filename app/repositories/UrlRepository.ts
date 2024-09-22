@@ -12,6 +12,17 @@ export class UrlRepository {
     async getUrlById(id: string) {
         return this.urlModel.findById(id).lean();
     }
-    
+
+    async getUrlByOriginalUrl(originalUrl: string) {
+        return this.urlModel.findOne({ originalUrl }).lean();
+    }
+
+    async createUrl(originalUrl: string, shortId: string) {
+        return this.urlModel.create({
+            originalUrl,
+            shortId,
+            createdAt: new Date(),
+        });
+    }
 }
 
